@@ -49,7 +49,7 @@
   .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.92) saturate(.8)}
   .leaflet-container{background:#0a2a36}
   .map-actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
-  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:11px 18px;font-size:.85rem;font-weight:500;text-decoration:none;border:1px solid var(--line);color:var(--foam);background:rgba(255,255,255,.03);transition:all .2s ease;cursor:pointer}
+  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:11px 18px;font-size:.85rem;font-weight:500;text-decoration:none;border:1px solid var(--line);color:var(--foam);background:rgba(255,255,255,.03);transition:all .2s ease;cursor:pointer;flex-shrink:0}
   .btn:hover{border-color:var(--amber);color:var(--paper);background:rgba(234,161,74,.10)}
   .btn-route{background:linear-gradient(120deg,var(--coral),var(--amber));border:none;color:#2a1505;font-weight:700}
   .btn-route:hover{filter:brightness(1.06);color:#2a1505}
@@ -94,10 +94,19 @@
     .hero{min-height:80svh;padding:0 22px calc(40px + env(safe-area-inset-bottom))}
     .stage{padding:36px 0 24px}
     .grid{grid-template-columns:1fr;gap:18px}
-    .map-col{position:sticky;top:calc(8px + env(safe-area-inset-top));z-index:50;background:var(--ink);padding-bottom:10px}
-    #map{height:36svh;min-height:260px;border-radius:14px}
-    .map-actions{gap:8px}
-    .btn{padding:13px 16px;font-size:.9rem}
+    .map-col{position:sticky;top:calc(8px + env(safe-area-inset-top));z-index:50;background:var(--ink);padding-bottom:8px}
+    #map{height:32svh;min-height:220px;border-radius:14px}
+    .map-actions{
+      margin-top:10px;
+      flex-wrap:nowrap;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      padding-bottom:2px;
+      mask-image:linear-gradient(to right, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+    }
+    .map-actions::-webkit-scrollbar{display:none}
+    .btn{padding:9px 14px;font-size:.78rem;gap:6px;white-space:nowrap}
     .day{margin-bottom:40px}
     .day-title{font-size:1.45rem}
     .stop{grid-template-columns:58px 1fr;gap:12px;padding:16px 14px}
@@ -226,9 +235,9 @@
         <div id="map"></div>
         <div class="map-actions">
           <a class="btn btn-route" id="routeLink" target="_blank" rel="noopener">전체 동선 구글맵으로 보기</a>
-          <button class="btn" id="resetBtn">지도 전체 보기</button>
+          <button class="btn" id="resetBtn">🗺️ 지도 전체 보기</button>
           <button class="btn" id="tripsBtn">🗂 내 여행 목록</button>
-          <button class="btn btn-act" id="actBtn">여행 메모 · 액티비티</button>
+          <button class="btn btn-act" id="actBtn">📝 여행 메모 · 액티비티</button>
           <button class="btn" id="placesBtn" style="display:none">📍 장소 관리</button>
         </div>
       </div>
