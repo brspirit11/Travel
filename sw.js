@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tokyo-itinerary-v1';
+const CACHE_NAME = 'tokyo-itinerary-v2';
 const ASSETS = ['./index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -13,14 +13,14 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
+// 네트워크 우선: 항상 최신 버전을 먼저 시도하고, 인터넷이 안 될 때만 캐시된 예전 버전을 보여줌
 self.addEventListener('fetch', (e) => {
-  // 지도 타일·검색 API 등 외부 요청은 그냥 통과, 우리 파일만 캐시 우선
   if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request).then((res) => {
+    fetch(e.request).then((res) => {
       const resClone = res.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
       return res;
-    }).catch(() => cached))
+    }).catch(() => caches.match(e.request))
   );
 });
