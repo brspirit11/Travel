@@ -291,9 +291,9 @@
     <button class="modal-close" id="placesClose" aria-label="닫기">✕</button>
     <h2>장소 관리</h2>
     <div class="msub">장소 이름을 검색하면 좌표가 자동으로 채워집니다</div>
-    <div class="mnote">· 지도 검색은 OpenStreetMap(Nominatim)을 사용합니다. 정확한 주소나 유명 장소명으로 검색하면 더 잘 찾아져요.<br>· 원하는 결과가 안 나오면 목록 아래 위도·경도를 직접 입력해도 됩니다.<br>· 번호는 일정 순서에 따라 자동으로 매겨집니다 (일정을 드래그로 옮기면 번호도 바뀝니다).</div>
+    <div class="mnote">· 지도 검색은 OpenStreetMap(Nominatim)을 사용해요. 장소명은 물론 정확한 주소로도 검색할 수 있어요.<br>· 검색해도 안 나오는 곳은, 검색 결과 아래 <b>"직접 추가"</b> 버튼으로 이름만으로도 추가할 수 있어요 (위치는 나중에 위도·경도를 직접 입력해서 조정하면 돼요).<br>· 번호는 일정 순서에 따라 자동으로 매겨집니다 (일정을 드래그로 옮기면 번호도 바뀝니다).</div>
     <div class="place-search">
-      <input type="text" id="placeSearchInput" placeholder="예: 도쿄 스카이트리, 시부야 스크램블 스퀘어">
+      <input type="text" id="placeSearchInput" placeholder="장소명 또는 주소 (예: 도쿄 스카이트리, 東京都台東区雷門2-3-1)">
       <button class="btn" id="placeSearchBtn">🔍 검색</button>
     </div>
     <div id="placeSearchStatus" class="search-status"></div>
@@ -687,12 +687,19 @@ async function joinTripByCode(code){
 initTrips();
 loadCurrentTripData();
 
+function esc(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 const gmapPlace = p => p.pid ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name)}&query_place_id=${p.pid}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name)}`;
 const tagClass = t => t==="meal"?"tag meal":t==="own"?"tag own":t==="act"?"tag act":t==="free"?"tag free":"tag";
 const PIN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
 
 /* ============ 지도 초기화 (한 번만) ============ */
 const map = L.map('map',{scrollWheelZoom:false,zoomControl:true}).setView([35.68,139.76],11);
+function mapCenterGuess(){
+  try{ const c = map.getCenter(); if(c && isFinite(c.lat) && isFinite(c.lng)) return {lat:c.lat, lng:c.lng}; }catch(e){}
+  return {lat:35.6812, lng:139.7671};
+}
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
   attribution:'© OpenStreetMap contributors', maxZoom:19
 }).addTo(map);
@@ -725,7 +732,7 @@ function renderMap(){
     const num = numberOf(key);
     const icon = L.divIcon({className:'', html:`<div class="marker-pin" id="pin-${key}"><span>${num}</span></div>`, iconSize:[30,30], iconAnchor:[15,28]});
     const m = L.marker([p.lat,p.lng],{icon}).addTo(markersLayer)
-      .bindPopup(`<b>${num}. ${p.name}</b><br><a href="${gmapPlace(p)}" target="_blank" rel="noopener">구글맵에서 열기 →</a>`);
+      .bindPopup(`<b>${num}. ${esc(p.name)}</b><br><a href="${gmapPlace(p)}" target="_blank" rel="noopener">구글맵에서 열기 →</a>`);
     m.on('click', ()=>{
       const stopEl = document.querySelector(`.stop[data-place="${key}"]`);
       if(stopEl){ clearActive(); stopEl.classList.add('active'); document.getElementById('pin-'+key)?.classList.add('active'); }
@@ -824,7 +831,7 @@ function renderTimeline(){
           <p class="t-p"></p>
           <div class="notes-list"></div>
           <button type="button" class="btn add-note-btn">+ 메모 추가</button>
-          <a class="glink" href="${gmapPlace(pl)}" target="_blank" rel="noopener">${PIN_SVG} ${pl.name} · 구글맵</a>
+          <a class="glink" href="${gmapPlace(pl)}" target="_blank" rel="noopener">${PIN_SVG} ${esc(pl.name)} · 구글맵</a>
         </div>
         <button class="stop-del" title="일정 삭제">✕</button>`;
       const timeEl = el.querySelector('.t-time'); timeEl.textContent = s.time; bindField(timeEl, `days.${di}.stops.${si}.time`);
@@ -850,7 +857,7 @@ function renderTimeline(){
       renderNotes();
       el.querySelector('.add-note-btn').onclick = (e)=>{ e.stopPropagation(); s.notes.push(''); saveData(); renderAll(); };
       const sel = el.querySelector('.stop-place-select');
-      sel.innerHTML = placeKeys.map(k=>`<option value="${k}" ${k===s.place?'selected':''}>${numberOf(k)}. ${DATA.places[k].name}</option>`).join('');
+      sel.innerHTML = placeKeys.map(k=>`<option value="${k}" ${k===s.place?'selected':''}>${numberOf(k)}. ${esc(DATA.places[k].name)}</option>`).join('');
       sel.onchange = ()=>{ s.place = sel.value; saveData(); renderAll(); };
       const searchWrap = el.querySelector('.stop-search-inline');
       el.querySelector('.stop-search-toggle').onclick = (e)=>{
@@ -858,10 +865,29 @@ function renderTimeline(){
         if(searchWrap.classList.contains('open')){ searchWrap.classList.remove('open'); searchWrap.innerHTML=''; return; }
         document.querySelectorAll('.stop-search-inline.open').forEach(w=>{ w.classList.remove('open'); w.innerHTML=''; });
         searchWrap.classList.add('open');
-        searchWrap.innerHTML = `<div class="place-search"><input type="text" class="ssi" placeholder="장소 이름으로 검색 (예: 도쿄타워)"><button type="button" class="btn ssb">검색</button></div><div class="search-status ssst"></div><div class="ssres"></div>`;
+        searchWrap.innerHTML = `<div class="place-search"><input type="text" class="ssi" placeholder="장소 이름·주소로 검색 (예: 도쿄타워, 東京都台東区雷門2-3-1)"><button type="button" class="btn ssb">검색</button></div><div class="search-status ssst"></div><div class="ssres"></div>`;
         const inp = searchWrap.querySelector('.ssi');
         const status = searchWrap.querySelector('.ssst');
         const resultsEl = searchWrap.querySelector('.ssres');
+        const applyPickedInline = (picked)=>{
+          const key = 'place_'+Date.now();
+          const maxN = Math.max(0, ...Object.values(DATA.places).map(pp=>pp.n));
+          DATA.places[key] = {n:maxN+1, name:picked.name, lat:picked.lat, lng:picked.lng, pid:''};
+          s.place = key;
+          saveData(); renderAll();
+        };
+        const appendManualOptionInline = (query)=>{
+          const wrap = document.createElement('div');
+          wrap.style.marginTop = '10px';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn';
+          btn.style.cssText = 'width:100%;justify-content:center;border-style:dashed;font-size:.78rem';
+          btn.textContent = `✏️ "${query}" 이름으로 직접 추가`;
+          btn.onclick = (ev)=>{ ev.stopPropagation(); applyPickedInline({ name:query, ...mapCenterGuess() }); };
+          wrap.appendChild(btn);
+          resultsEl.appendChild(wrap);
+        };
         const doSearch = async ()=>{
           const q = inp.value.trim();
           resultsEl.innerHTML='';
@@ -869,16 +895,15 @@ function renderTimeline(){
           status.textContent='검색 중...';
           try{
             const data = await fetchNominatim(q);
-            if(!data.length){ status.textContent='검색 결과가 없습니다. 다른 검색어로 시도해보세요.'; return; }
+            if(!data.length){
+              status.textContent='검색 결과가 없습니다. 아래에서 직접 추가할 수 있어요.';
+              appendManualOptionInline(q);
+              return;
+            }
             status.textContent=`${data.length}개의 결과 · 클릭하면 이 일정의 장소로 지정됩니다`;
-            resultsEl.appendChild(buildResultsList(data, (picked)=>{
-              const key = 'place_'+Date.now();
-              const maxN = Math.max(0, ...Object.values(DATA.places).map(pp=>pp.n));
-              DATA.places[key] = {n:maxN+1, name:picked.name, lat:picked.lat, lng:picked.lng, pid:''};
-              s.place = key;
-              saveData(); renderAll();
-            }));
-          }catch(err){ status.textContent='검색에 실패했습니다. 네트워크 연결을 확인해주세요.'; }
+            resultsEl.appendChild(buildResultsList(data, applyPickedInline));
+            appendManualOptionInline(q);
+          }catch(err){ status.textContent='검색에 실패했습니다. 네트워크 연결을 확인해주세요. 아래에서 직접 추가할 수도 있어요.'; appendManualOptionInline(q); }
         };
         searchWrap.querySelector('.ssb').onclick = (ev)=>{ ev.stopPropagation(); doSearch(); };
         inp.addEventListener('click', ev=>ev.stopPropagation());
@@ -937,7 +962,7 @@ function renderPlaceRows(){
     const row = document.createElement('div');
     row.className='place-row';
     row.innerHTML = `<span class="place-row-num">${numberOf(key)}</span>
-      <input type="text" value="${p.name.replace(/"/g,'&quot;')}" data-f="name">
+      <input type="text" value="${esc(p.name)}" data-f="name">
       <input type="text" value="${p.lat}" data-f="lat">
       <input type="text" value="${p.lng}" data-f="lng">
       <button class="place-relocate" title="이름으로 다시 검색해서 좌표 갱신">🔍</button>
@@ -983,7 +1008,7 @@ function buildResultsList(data, onPick){
     btn.type='button';
     btn.className='search-result-item';
     const shortName = item.name || item.display_name.split(',')[0];
-    btn.innerHTML = `<span class="srt">${shortName}</span><span class="srd">${item.display_name}</span>`;
+    btn.innerHTML = `<span class="srt">${esc(shortName)}</span><span class="srd">${esc(item.display_name)}</span>`;
     btn.onclick = ()=> onPick({name:shortName, lat:parseFloat(item.lat), lng:parseFloat(item.lon)});
     list.appendChild(btn);
   });
@@ -997,25 +1022,47 @@ async function runPlaceSearch(){
   resultsEl.innerHTML = '';
   if(!q){ status.textContent = '검색어를 입력해주세요.'; return; }
   status.textContent = '검색 중...';
+  const applyPicked = (picked)=>{
+    if(searchTargetKey && DATA.places[searchTargetKey]){
+      const p = DATA.places[searchTargetKey];
+      p.name = picked.name; p.lat = picked.lat; p.lng = picked.lng;
+    } else {
+      const key = 'place_'+Date.now();
+      const maxN = Math.max(0, ...Object.values(DATA.places).map(pp=>pp.n));
+      DATA.places[key] = {n:maxN+1, name:picked.name, lat:picked.lat, lng:picked.lng, pid:''};
+    }
+    searchTargetKey = null;
+    input.value=''; resultsEl.innerHTML=''; status.textContent='추가/갱신되었습니다 ✓';
+    saveData(); renderAll();
+  };
+  const appendManualOption = (query)=>{
+    const wrap = document.createElement('div');
+    wrap.style.marginTop = '10px';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn';
+    btn.style.cssText = 'width:100%;justify-content:center;border-style:dashed;font-size:.8rem';
+    btn.textContent = `✏️ "${query}" 이름으로 직접 추가 (검색 결과에 없어도 OK)`;
+    btn.onclick = ()=>{
+      const center = mapCenterGuess();
+      applyPicked({ name:query, lat:center.lat, lng:center.lng });
+    };
+    wrap.appendChild(btn);
+    resultsEl.appendChild(wrap);
+  };
   try{
     const data = await fetchNominatim(q);
-    if(!data.length){ status.textContent = '검색 결과가 없습니다. 다른 검색어로 시도해보세요.'; return; }
+    if(!data.length){
+      status.textContent = '검색 결과가 없습니다. 이름/주소를 다르게 입력해보시거나, 아래에서 직접 추가하세요.';
+      appendManualOption(q);
+      return;
+    }
     status.textContent = `${data.length}개의 결과 · 클릭해서 선택하세요`;
-    resultsEl.appendChild(buildResultsList(data, (picked)=>{
-      if(searchTargetKey && DATA.places[searchTargetKey]){
-        const p = DATA.places[searchTargetKey];
-        p.name = picked.name; p.lat = picked.lat; p.lng = picked.lng;
-      } else {
-        const key = 'place_'+Date.now();
-        const maxN = Math.max(0, ...Object.values(DATA.places).map(pp=>pp.n));
-        DATA.places[key] = {n:maxN+1, name:picked.name, lat:picked.lat, lng:picked.lng, pid:''};
-      }
-      searchTargetKey = null;
-      input.value=''; resultsEl.innerHTML=''; status.textContent='추가/갱신되었습니다 ✓';
-      saveData(); renderAll();
-    }));
+    resultsEl.appendChild(buildResultsList(data, applyPicked));
+    appendManualOption(q);
   }catch(e){
-    status.textContent = '검색에 실패했습니다. 네트워크 연결을 확인해주세요.';
+    status.textContent = '검색에 실패했습니다. 네트워크 연결을 확인해주세요. 아래에서 직접 추가할 수도 있어요.';
+    appendManualOption(q);
   }
 }
 document.getElementById('placeSearchBtn').onclick = runPlaceSearch;
@@ -1091,8 +1138,8 @@ function renderTripRows(){
     row.className = 'trip-row' + (isCurrent ? ' current' : '');
     row.innerHTML = `
       <div class="trip-row-info">
-        <div class="trip-row-title">${(t.title||'이름 없는 여행')}${isCurrent ? '<span class="trip-row-badge">현재 열림</span>' : ''}${t.shared ? '<span class="trip-row-badge" style="color:#7fd3c4;border-color:rgba(127,211,196,.5)">☁️ 공유중</span>' : ''}</div>
-        <div class="trip-row-dates">${t.dates || '날짜 미정'}</div>
+        <div class="trip-row-title">${esc(t.title||'이름 없는 여행')}${isCurrent ? '<span class="trip-row-badge">현재 열림</span>' : ''}${t.shared ? '<span class="trip-row-badge" style="color:#7fd3c4;border-color:rgba(127,211,196,.5)">☁️ 공유중</span>' : ''}</div>
+        <div class="trip-row-dates">${esc(t.dates) || '날짜 미정'}</div>
       </div>
       <div class="trip-row-actions">
         ${isCurrent ? '' : '<button type="button" class="btn trip-open">열기</button>'}
@@ -1228,7 +1275,7 @@ function openDayMap(dayIndex){
     seq.forEach((key, idx)=>{
       const p = DATA.places[key];
       const icon = L.divIcon({ className:'', html:`<div class="marker-pin"><span>${idx+1}</span></div>`, iconSize:[30,30], iconAnchor:[15,28] });
-      L.marker([p.lat,p.lng],{icon}).addTo(dayMapMarkersLayer).bindPopup(`<b>${idx+1}. ${p.name}</b>`);
+      L.marker([p.lat,p.lng],{icon}).addTo(dayMapMarkersLayer).bindPopup(`<b>${idx+1}. ${esc(p.name)}</b>`);
       latlngs.push([p.lat,p.lng]);
     });
     if(latlngs.length > 1){
