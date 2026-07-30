@@ -635,6 +635,40 @@ function disableSharing(id){
   saveTripsIndex();
   if(id === currentTripId) unsubscribeTrip();
 }
+async function renameTripCode(oldId){
+  const entry = tripEntry(oldId);
+  if(!entry) return;
+  const suggested = oldId.replace(/^trip_/,'').replace(/_.*/,'');
+  const input = window.prompt('원하는 공유 코드를 입력하세요 (영문 소문자·숫자·하이픈만, 4~30자)', suggested);
+  if(input === null) return;
+  const newId = input.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
+  if(newId.length < 4){ alert('코드가 너무 짧아요. 4자 이상 입력해주세요.'); return; }
+  if(newId === oldId) return;
+  if(tripsIndex.find(t=>t.id===newId)){ alert('이미 사용 중인 코드예요. 다른 코드를 입력해주세요.'); return; }
+
+  const raw = localStorage.getItem(tripDataKey(oldId));
+  if(raw) localStorage.setItem(tripDataKey(newId), raw);
+  localStorage.removeItem(tripDataKey(oldId));
+
+  if(entry.shared && sb && raw){
+    try{
+      const data = JSON.parse(raw);
+      await sb.from(SUPABASE_TABLE).upsert({ id:newId, data, updated_at:new Date().toISOString() });
+      await sb.from(SUPABASE_TABLE).delete().eq('id', oldId);
+    }catch(e){ console.warn('cloud recode failed', e); }
+  }
+
+  entry.id = newId;
+  saveTripsIndex();
+
+  if(currentTripId === oldId){
+    currentTripId = newId;
+    localStorage.setItem(CURRENT_TRIP_KEY, newId);
+    if(entry.shared) subscribeToTrip(newId);
+  }
+  renderTripRows();
+  alert(`공유 코드가 "${newId}"로 바뀌었어요.`);
+}
 async function joinTripByCode(code){
   if(!sb) return { ok:false, msg:'클라우드 연결이 설정되지 않았어요.' };
   const trimmed = (code||'').trim();
@@ -774,7 +808,6 @@ function renderTimeline(){
 
     day.stops.forEach((s, si)=>{
       const pl = DATA.places[s.place] || {n:'?', name:'(삭제된 장소)'};
-      const tagHtml = (s.tags||[]).map(([c,l])=>`<span class="${tagClass(c)}">${l}</span>`).join('');
       const el = document.createElement('div');
       el.className='stop'; el.dataset.place = s.place;
       el.innerHTML = `
@@ -791,7 +824,6 @@ function renderTimeline(){
           <p class="t-p"></p>
           <div class="notes-list"></div>
           <button type="button" class="btn add-note-btn">+ 메모 추가</button>
-          <div class="tags">${tagHtml}</div>
           <a class="glink" href="${gmapPlace(pl)}" target="_blank" rel="noopener">${PIN_SVG} ${pl.name} · 구글맵</a>
         </div>
         <button class="stop-del" title="일정 삭제">✕</button>`;
@@ -1065,8 +1097,8 @@ function renderTripRows(){
       <div class="trip-row-actions">
         ${isCurrent ? '' : '<button type="button" class="btn trip-open">열기</button>'}
         ${t.shared
-          ? '<button type="button" class="btn trip-copy">🔗 코드 복사</button><button type="button" class="btn trip-unshare">공유 끄기</button>'
-          : '<button type="button" class="btn trip-share">☁️ 공유 켜기</button>'}
+          ? '<button type="button" class="btn trip-copy">🔗 코드 복사</button><button type="button" class="btn trip-recode">✏️ 코드 변경</button><button type="button" class="btn trip-unshare">공유 끄기</button>'
+          : '<button type="button" class="btn trip-share">☁️ 공유 켜기</button><button type="button" class="btn trip-recode">✏️ 코드 미리 정하기</button>'}
         <button type="button" class="btn trip-dup">복제</button>
         <button type="button" class="btn trip-del">삭제</button>
       </div>`;
@@ -1096,6 +1128,8 @@ function renderTripRows(){
         setTimeout(()=>{ copyBtn.textContent = '🔗 코드 복사'; }, 1500);
       }catch(e){ alert('공유 코드: ' + t.id); }
     };
+    const recodeBtn = row.querySelector('.trip-recode');
+    if(recodeBtn) recodeBtn.onclick = ()=>{ renameTripCode(t.id); };
     const unshareBtn = row.querySelector('.trip-unshare');
     if(unshareBtn) unshareBtn.onclick = ()=>{
       if(confirm('공유를 끄면 다른 사람은 더 이상 실시간으로 이 여행을 볼 수 없어요. (이미 공유했던 코드로도 접근이 안 됩니다) 계속할까요?')){
