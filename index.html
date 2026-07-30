@@ -57,6 +57,8 @@
   /* TIMELINE */
   .day{margin-bottom:56px}
   .day-head{display:flex;align-items:baseline;gap:16px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:24px}
+  .day-map-btn{margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 14px;font-size:.76rem;font-weight:500;border:1px solid var(--line);color:var(--foam);background:rgba(255,255,255,.03);cursor:pointer;transition:all .2s ease}
+  .day-map-btn:hover{border-color:var(--amber);color:var(--paper);background:rgba(234,161,74,.10)}
   .day-no{font-family:"Fraunces",serif;font-weight:600;font-size:1.05rem;color:var(--amber);letter-spacing:.01em}
   .day-title{font-family:"Fraunces",serif;font-weight:500;font-size:1.75rem;color:var(--paper);letter-spacing:-.01em}
   .day-date{margin-left:auto;font-size:.82rem;letter-spacing:.16em;text-transform:uppercase;color:rgba(207,231,228,.6)}
@@ -94,8 +96,8 @@
     .hero{min-height:80svh;padding:0 22px calc(40px + env(safe-area-inset-bottom))}
     .stage{padding:36px 0 24px}
     .grid{grid-template-columns:1fr;gap:18px}
-    .map-col{position:sticky;top:calc(8px + env(safe-area-inset-top));z-index:50;background:var(--ink);padding-bottom:8px}
-    #map{height:32svh;min-height:220px;border-radius:14px}
+    .map-col{position:static}
+    #map{height:38svh;min-height:260px;border-radius:14px}
     .map-actions{
       margin-top:10px;
       flex-wrap:nowrap;
@@ -126,6 +128,10 @@
   .modal-backdrop{position:fixed;inset:0;background:rgba(3,15,20,.74);backdrop-filter:blur(4px);z-index:2000;display:none;align-items:flex-start;justify-content:center;padding:24px 16px;opacity:0;transition:opacity .25s}
   .modal-backdrop.open{display:flex;opacity:1}
   .modal{margin:auto;width:min(720px,94vw);max-height:88vh;max-height:88svh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,#0c3340,#082832);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:26px 24px calc(28px + env(safe-area-inset-bottom))}
+  .daymap-modal{width:min(900px,96vw)}
+  #dayMapContainer{width:100%;height:62vh;height:62svh;min-height:340px;border-radius:14px;overflow:hidden;margin-top:14px;background:#0a2a36;border:1px solid var(--line)}
+  #dayMapContainer .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.92) saturate(.8)}
+  #dayMapContainer .leaflet-container{background:#0a2a36}
   .modal h2{font-family:"Fraunces",serif;font-weight:500;color:var(--paper);font-size:1.5rem;margin-bottom:4px}
   .modal .msub{font-size:.85rem;color:rgba(207,231,228,.6);margin-bottom:16px;letter-spacing:.04em}
   .modal .mnote{font-size:.78rem;color:var(--gold);border-left:2px solid rgba(201,162,75,.4);padding-left:10px;margin-bottom:8px;line-height:1.55}
@@ -301,6 +307,15 @@
       <button class="btn" id="joinCodeBtn">참가하기</button>
     </div>
     <div id="joinCodeStatus" class="search-status"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="dayMapModal">
+  <div class="modal daymap-modal" role="dialog" aria-modal="true" aria-label="일자별 동선 지도">
+    <button class="modal-close" id="dayMapClose" aria-label="닫기">✕</button>
+    <h2 id="dayMapTitle">일정 지도</h2>
+    <div class="msub" id="dayMapSub"></div>
+    <div id="dayMapContainer"></div>
   </div>
 </div>
 
@@ -733,9 +748,10 @@ function renderTimeline(){
     sec.className='day';
     const head = document.createElement('div');
     head.className='day-head';
-    head.innerHTML = `<span class="day-no"></span><span class="day-title"></span><button class="day-del" title="일차 삭제">✕</button>`;
+    head.innerHTML = `<span class="day-no"></span><span class="day-title"></span><button type="button" class="day-map-btn" title="이 날 동선만 지도로 보기">🗺️ 지도</button><button class="day-del" title="일차 삭제">✕</button>`;
     const noEl = head.querySelector('.day-no'); noEl.textContent = day.no; bindField(noEl, `days.${di}.no`);
     const titleEl = head.querySelector('.day-title'); titleEl.textContent = day.title; bindField(titleEl, `days.${di}.title`);
+    head.querySelector('.day-map-btn').onclick = (e)=>{ e.stopPropagation(); openDayMap(di); };
     head.querySelector('.day-del').onclick = ()=>{ if(confirm(day.no+' 일차를 삭제할까요?')){ DATA.days.splice(di,1); saveData(); renderAll(); } };
     sec.appendChild(head);
 
@@ -1133,7 +1149,55 @@ function closeTripsModal(){tripsModal.classList.remove('open');document.body.sty
 document.getElementById('tripsClose').onclick=closeTripsModal;
 tripsModal.addEventListener('click',e=>{if(e.target===tripsModal)closeTripsModal();});
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeActModal();closePlacesModal();closeTripsModal();}});
+/* ============ 일자별 동선 지도 팝업 ============ */
+let dayMap = null;
+let dayMapMarkersLayer = null;
+const dayMapModal = document.getElementById('dayMapModal');
+function openDayMap(dayIndex){
+  const day = DATA.days[dayIndex];
+  if(!day) return;
+  document.getElementById('dayMapTitle').textContent = `${day.no || ''} ${day.title || ''}`.trim() || '일정 지도';
+  const seq = day.stops.map(s=>s.place).filter(k=>DATA.places[k]);
+  document.getElementById('dayMapSub').textContent = seq.length
+    ? `이 날 방문하는 장소 ${seq.length}곳의 동선`
+    : '이 날짜에 지정된 장소가 없어요';
+  dayMapModal.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(()=>{
+    if(!dayMap){
+      dayMap = L.map('dayMapContainer', { scrollWheelZoom:true, zoomControl:true }).setView([35.68,139.76], 11);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:'© OpenStreetMap contributors', maxZoom:19
+      }).addTo(dayMap);
+      dayMapMarkersLayer = L.layerGroup().addTo(dayMap);
+    }
+    dayMapMarkersLayer.clearLayers();
+    dayMap.invalidateSize();
+    if(seq.length === 0){
+      dayMap.setView([35.68,139.76], 11);
+      return;
+    }
+    const latlngs = [];
+    seq.forEach((key, idx)=>{
+      const p = DATA.places[key];
+      const icon = L.divIcon({ className:'', html:`<div class="marker-pin"><span>${idx+1}</span></div>`, iconSize:[30,30], iconAnchor:[15,28] });
+      L.marker([p.lat,p.lng],{icon}).addTo(dayMapMarkersLayer).bindPopup(`<b>${idx+1}. ${p.name}</b>`);
+      latlngs.push([p.lat,p.lng]);
+    });
+    if(latlngs.length > 1){
+      L.polyline(latlngs, { color:'#eaa14a', weight:3, opacity:.85, dashArray:'6 8' }).addTo(dayMapMarkersLayer);
+    }
+    dayMap.fitBounds(L.latLngBounds(latlngs).pad(0.25));
+  }, 60);
+}
+function closeDayMap(){
+  dayMapModal.classList.remove('open');
+  document.body.style.overflow='';
+}
+document.getElementById('dayMapClose').onclick = closeDayMap;
+dayMapModal.addEventListener('click', e=>{ if(e.target===dayMapModal) closeDayMap(); });
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeActModal();closePlacesModal();closeTripsModal();closeDayMap();}});
 
 /* ============ 내보내기 / 가져오기 / 초기화 ============ */
 document.getElementById('exportBtn').onclick = (e)=>{
