@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.brspirit11.twa",
+        "sha256_cert_fingerprints": ["53:41:19:E0:ED:6B:B3:C8:4B:EA:0B:D7:EB:38:67:90:22:95:70:46:60:98:9E:FA:CA:2C:1F:B3:1E:42:FD:9C"]
+      }
+    }]
