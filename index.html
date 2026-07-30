@@ -41,7 +41,7 @@
   .hint{margin-top:34px;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(207,231,228,.55)}
 
   .stage{padding:72px 0 40px}
-  .grid{display:grid;grid-template-columns:minmax(0,1fr) 1.05fr;gap:48px;align-items:start}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:48px;align-items:start}
 
   /* MAP */
   .map-col{position:sticky;top:24px}
@@ -97,7 +97,7 @@
     .wrap{padding:0 max(18px, env(safe-area-inset-left))}
     .hero{min-height:80svh;padding:0 22px calc(40px + env(safe-area-inset-bottom))}
     .stage{padding:36px 0 24px}
-    .grid{grid-template-columns:1fr;gap:18px}
+    .grid{grid-template-columns:minmax(0,1fr);gap:18px}
     .map-col{position:static}
     #map{height:38svh;min-height:260px;border-radius:14px}
     .map-actions{
