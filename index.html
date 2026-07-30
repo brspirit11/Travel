@@ -22,6 +22,26 @@
     --sand:#f4ede0; --paper:#fbf8f2; --coral:#e0703a; --amber:#eaa14a; --gold:#c9a24b;
     --line:rgba(207,231,228,.16); --shadow:0 24px 60px -28px rgba(0,0,0,.55); --r:18px;
   }
+  body[data-theme="forest"]{
+    --ink:#0d2818; --ink-2:#153c24; --sea:#4a8f6b; --foam:#d9e8d0;
+    --sand:#f0ead8; --paper:#faf7ee; --coral:#c96f3e; --amber:#d9a441; --gold:#b8934a;
+    --line:rgba(217,232,208,.16);
+  }
+  body[data-theme="burgundy"]{
+    --ink:#2a0f18; --ink-2:#3d1624; --sea:#a3495c; --foam:#f0d9de;
+    --sand:#f2e6da; --paper:#fbf4ef; --coral:#c1553f; --amber:#d99a4e; --gold:#b98a55;
+    --line:rgba(240,217,222,.16);
+  }
+  body[data-theme="ocean"]{
+    --ink:#04262e; --ink-2:#0a3a45; --sea:#2a9fb0; --foam:#d3ecee;
+    --sand:#f2ecd8; --paper:#fbf9f2; --coral:#e8845a; --amber:#f0b955; --gold:#c9a24b;
+    --line:rgba(211,236,238,.16);
+  }
+  body[data-theme="sunset"]{
+    --ink:#2b1710; --ink-2:#3f2416; --sea:#c17a4a; --foam:#f0ddc9;
+    --sand:#f3e6cf; --paper:#fbf6ec; --coral:#d65a3d; --amber:#e8a13e; --gold:#c98a3d;
+    --line:rgba(240,221,201,.16);
+  }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
   body{overflow-x:hidden;max-width:100vw}
@@ -39,6 +59,17 @@
   .hero .dates{margin-top:26px;font-family:"Fraunces",serif;font-size:clamp(1.1rem,2.6vw,1.7rem);font-weight:400;color:var(--foam);letter-spacing:.04em}
   .hero .meta{margin-top:16px;font-size:.92rem;color:rgba(207,231,228,.72);letter-spacing:.02em;display:flex;flex-wrap:wrap;gap:8px 18px}
   .hint{margin-top:34px;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(207,231,228,.55)}
+  .theme-picker{display:none;align-items:center;gap:10px;margin-top:16px}
+  body.edit-mode .theme-picker{display:flex}
+  .theme-picker-label{font-size:.74rem;letter-spacing:.06em;color:rgba(207,231,228,.55)}
+  .theme-swatch{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0;transition:transform .15s ease,border-color .15s ease}
+  .theme-swatch:hover{transform:scale(1.12)}
+  .theme-swatch.active{border-color:var(--paper)}
+  .theme-swatch[data-theme="navy"]{background:linear-gradient(135deg,#06222e,#eaa14a)}
+  .theme-swatch[data-theme="forest"]{background:linear-gradient(135deg,#0d2818,#d9a441)}
+  .theme-swatch[data-theme="burgundy"]{background:linear-gradient(135deg,#2a0f18,#d99a4e)}
+  .theme-swatch[data-theme="ocean"]{background:linear-gradient(135deg,#04262e,#f0b955)}
+  .theme-swatch[data-theme="sunset"]{background:linear-gradient(135deg,#2b1710,#e8a13e)}
 
   .stage{padding:72px 0 40px}
   .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:48px;align-items:start}
@@ -244,6 +275,14 @@
     <h1 id="heroTitle"><span class="edit-field" data-bind="meta.titleMain">TOKYO</span><br><em><span class="edit-field" data-bind="meta.titleSub">東京</span></em></h1>
     <div class="dates"><span class="edit-field" data-bind="meta.dates">2026. 11. 15. — 19.</span></div>
     <div class="hint">↓ 일정을 선택하면 지도에 표시됩니다 · 우측 하단 ✏️ 버튼으로 직접 수정할 수 있어요</div>
+    <div class="theme-picker" id="themePicker">
+      <span class="theme-picker-label">🎨 테마</span>
+      <button type="button" class="theme-swatch" data-theme="navy" title="네이비 (기본)"></button>
+      <button type="button" class="theme-swatch" data-theme="forest" title="포레스트그린"></button>
+      <button type="button" class="theme-swatch" data-theme="burgundy" title="버건디"></button>
+      <button type="button" class="theme-swatch" data-theme="ocean" title="오션블루"></button>
+      <button type="button" class="theme-swatch" data-theme="sunset" title="선셋"></button>
+    </div>
   </div>
 </header>
 
@@ -434,6 +473,8 @@ function migrateData(d){
       delete s.note;
     });
   });
+  if(!d.meta) d.meta = {};
+  if(!d.meta.theme) d.meta.theme = 'navy';
   return d;
 }
 
@@ -1109,6 +1150,11 @@ function renderHero(){
       if(!el.dataset.bound){ bindField(el, path); el.dataset.bound='1'; }
     }
   });
+  const theme = (DATA.meta && DATA.meta.theme) || 'navy';
+  document.body.dataset.theme = theme;
+  document.querySelectorAll('.theme-swatch').forEach(sw=>{
+    sw.classList.toggle('active', sw.dataset.theme === theme);
+  });
 }
 function getPath(obj, path){
   return path.split('.').reduce((c,k)=>c && c[k], obj);
@@ -1213,6 +1259,16 @@ document.getElementById('newTripTokyoBtn').onclick = ()=>{
 };
 
 /* ============ 편집 모드 토글 ============ */
+document.querySelectorAll('.theme-swatch').forEach(sw=>{
+  sw.onclick = ()=>{
+    if(!DATA.meta) DATA.meta = {};
+    DATA.meta.theme = sw.dataset.theme;
+    document.body.dataset.theme = sw.dataset.theme;
+    document.querySelectorAll('.theme-swatch').forEach(s=>s.classList.toggle('active', s===sw));
+    saveData();
+  };
+});
+
 const editToggle = document.getElementById('editToggle');
 editToggle.onclick = ()=>{
   const on = document.body.classList.toggle('edit-mode');
